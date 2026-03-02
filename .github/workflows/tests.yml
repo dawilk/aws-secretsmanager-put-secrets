@@ -18,6 +18,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          cache: npm
+          cache-dependency-path: package-lock.json
+          node-version: 20
+      - name: Restore cache
+        id: cache-npm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+      - name: Install dependencies
+        if: steps.cache-npm.outputs.cache-hit != 'true'
+        run: npm ci
       - name: Run Unit Tests
         run: |
           npm ci
