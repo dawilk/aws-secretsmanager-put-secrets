@@ -8,25 +8,16 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Restore cache
+      id: cache-npm
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
     - name: Install dependencies
+      if: steps.cache-npm.outputs.cache-hit != 'true'
       run: npm ci
       shell: bash
     - name: Build the dist folder
       run: npm run build
       shell: bash
-    - name: Determine role to assume
-      id: role-to-assume
-      run: |
-        if [ "${{ github.event_name }}" == "push" ]; then
-          # Use prod role for the PRs running against the main repo
-          echo "arn=arn:aws:iam::339713045997:role/GithubActionsRole" >> "$GITHUB_OUTPUT"
-        else
-          # Use beta role for the PRs running against engineer forks
-          echo "arn=arn:aws:iam::654654453185:role/GithubActionsRole" >> "$GITHUB_OUTPUT"
-        fi
-      shell: bash
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v5
-      with:
-        role-to-assume: ${{ steps.role-to-assume.outputs.arn }}
-        aws-region: ${{ inputs.aws-region }}
