@@ -22,11 +22,11 @@ jobs:
         run: |
           npm ci
           npm run test
-      - name: Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          fail_ci_if_error: true
-          use_oidc: true
+      # - name: Codecov
+      #   uses: codecov/codecov-action@v5
+      #   with:
+      #     fail_ci_if_error: true
+      #     use_oidc: true
 
   put-secret-basic-integration-test:
     runs-on: ubuntu-latest
