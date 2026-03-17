@@ -23,7 +23,7 @@ jobs:
         with:
           cache: npm
           cache-dependency-path: package-lock.json
-          node-version: 20
+          node-version: 24
       - name: Restore cache
         id: cache-npm
         uses: actions/cache@v4
@@ -34,9 +34,7 @@ jobs:
         if: steps.cache-npm.outputs.cache-hit != 'true'
         run: npm ci
       - name: Run Unit Tests
-        run: |
-          npm ci
-          npm run test
+        run: npm run test
       # - name: Codecov
       #   uses: codecov/codecov-action@v5
       #   with:
