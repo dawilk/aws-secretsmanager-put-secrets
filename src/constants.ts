@@ -1,7 +1,7 @@
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const packageJson = require('../package.json');
+import packageJson from "../package.json";
+
 export const ACTION_VERSION = `v${packageJson.version}`;
 
 export function getUserAgent(): string {
-    return `github-action/${ACTION_VERSION}`;
+  return `github-action/${ACTION_VERSION}`;
 }

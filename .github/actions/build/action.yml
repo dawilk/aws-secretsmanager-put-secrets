@@ -1,7 +1,7 @@
 name: Builds
 description: Builds the repository and assumes the AWS IAM role for testing
 inputs:
-  aws-region: 
+  aws-region:
     description: Region where the credentials will be assumed
     required: false
     default: us-east-1

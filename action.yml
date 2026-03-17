@@ -1,24 +1,24 @@
-name: 'AWS Secrets Manager - Put Secrets'
-author: 'AWS Secrets Manager'
-description: 'GitHub action for putting/updating secrets in AWS Secrets Manager'
+name: "AWS Secrets Manager - Put Secrets"
+author: "AWS Secrets Manager"
+description: "GitHub action for putting/updating secrets in AWS Secrets Manager"
 branding:
-  icon: 'cloud'
-  color: 'orange'
+  icon: "cloud"
+  color: "orange"
 inputs:
   secret-id:
-    description: 'The name or ARN of the secret to create or update'
+    description: "The name or ARN of the secret to create or update"
     required: true
   secret-value:
-    description: 'The secret value (raw text or JSON string) to store'
+    description: "The secret value (raw text or JSON string) to store"
     required: true
   tags:
     description: '(Optional) JSON object string of tags to apply, e.g. {"Environment":"prod","Team":"platform"}'
     required: false
-    default: ''
+    default: ""
   auto-select-family-attempt-timeout:
-    description: '(Optional) Timeout (ms) for dual-stack DNS first IP connection attempt. Needed for geographically distant GitHub action workers'
+    description: "(Optional) Timeout (ms) for dual-stack DNS first IP connection attempt. Needed for geographically distant GitHub action workers"
     required: false
-    default: '1000'
+    default: "1000"
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+  using: "node24"
+  main: "dist/index.js"
