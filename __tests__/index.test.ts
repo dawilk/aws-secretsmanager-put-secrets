@@ -1,4 +1,4 @@
-import * as core from "@actions/core";
+import { jest } from "@jest/globals";
 import { mockClient } from "aws-sdk-client-mock";
 import {
   GetSecretValueCommand,
@@ -10,7 +10,22 @@ import {
   InvalidParameterException,
   SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
-import { run } from "../src";
+
+const coreMock = {
+  getInput: jest.fn(),
+  setFailed: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+};
+
+const netMock = {
+  setDefaultAutoSelectFamilyAttemptTimeout: jest.fn(),
+};
+
+jest.unstable_mockModule("@actions/core", () => coreMock);
+jest.unstable_mockModule("net", () => netMock);
+
+const { run } = await import("../src/index.js");
 
 const DEFAULT_TEST_ENV = {
   AWS_DEFAULT_REGION: "us-east-1",
@@ -18,8 +33,6 @@ const DEFAULT_TEST_ENV = {
   GITHUB_REPOSITORY: "owner/repo",
   GITHUB_RUN_ID: "12345",
 };
-
-import * as net from "net";
 
 const smMockClient = mockClient(SecretsManagerClient);
 
@@ -29,19 +42,8 @@ const SECRET_ARN =
   "arn:aws:secretsmanager:us-east-1:123456789012:secret:my/secret-abc123";
 const DEFAULT_TIMEOUT = "1000";
 
-jest.mock("@actions/core", () => ({
-  getInput: jest.fn(),
-  setFailed: jest.fn(),
-  info: jest.fn(),
-  debug: jest.fn(),
-}));
-
-jest.mock("net", () => ({
-  setDefaultAutoSelectFamilyAttemptTimeout: jest.fn(),
-}));
-
 function mockGetInput(overrides: Record<string, string> = {}) {
-  jest.spyOn(core, "getInput").mockImplementation((name: string) => {
+  coreMock.getInput.mockImplementation((name: string) => {
     const defaults: Record<string, string> = {
       "auto-select-family-attempt-timeout": DEFAULT_TIMEOUT,
       "secret-id": SECRET_ID,
@@ -75,7 +77,7 @@ describe("put-secrets action", () => {
 
     await run();
 
-    expect(core.setFailed).toHaveBeenCalledWith(
+    expect(coreMock.setFailed).toHaveBeenCalledWith(
       "Failed to authenticate with AWS. Ensure configure-aws-credentials runs before this step and has valid credentials.",
     );
   });
@@ -94,7 +96,7 @@ describe("put-secrets action", () => {
 
     await run();
 
-    expect(core.setFailed).not.toHaveBeenCalled();
+    expect(coreMock.setFailed).not.toHaveBeenCalled();
     expect(smMockClient).toHaveReceivedCommand(CreateSecretCommand);
     expect(smMockClient).toHaveReceivedCommandWith(CreateSecretCommand, {
       Name: SECRET_ID,
@@ -121,7 +123,7 @@ describe("put-secrets action", () => {
 
     await run();
 
-    expect(core.setFailed).toHaveBeenCalledWith(
+    expect(coreMock.setFailed).toHaveBeenCalledWith(
       expect.stringContaining("Invalid parameter when creating secret"),
     );
   });
@@ -131,7 +133,7 @@ describe("put-secrets action", () => {
 
     await run();
 
-    expect(core.setFailed).toHaveBeenCalled();
+    expect(coreMock.setFailed).toHaveBeenCalled();
   });
 
   test("JSON identical logs up-to-date and sets workflow-run:check tag", async () => {
@@ -148,8 +150,8 @@ describe("put-secrets action", () => {
 
     await run();
 
-    expect(core.setFailed).not.toHaveBeenCalled();
-    expect(core.info).toHaveBeenCalledWith(
+    expect(coreMock.setFailed).not.toHaveBeenCalled();
+    expect(coreMock.info).toHaveBeenCalledWith(
       `Secret '${SECRET_ID}' is up-to-date.`,
     );
     expect(smMockClient).not.toHaveReceivedCommand(PutSecretValueCommand);
@@ -174,8 +176,8 @@ describe("put-secrets action", () => {
 
     await run();
 
-    expect(core.setFailed).not.toHaveBeenCalled();
-    expect(core.info).toHaveBeenCalledWith(
+    expect(coreMock.setFailed).not.toHaveBeenCalled();
+    expect(coreMock.info).toHaveBeenCalledWith(
       `Secret '${SECRET_ID}' is up-to-date.`,
     );
     expect(smMockClient).not.toHaveReceivedCommand(PutSecretValueCommand);
@@ -197,7 +199,7 @@ describe("put-secrets action", () => {
 
     await run();
 
-    expect(core.setFailed).not.toHaveBeenCalled();
+    expect(coreMock.setFailed).not.toHaveBeenCalled();
     expect(smMockClient).toHaveReceivedCommandWith(PutSecretValueCommand, {
       SecretId: SECRET_ID,
       SecretString: newValue,
@@ -251,7 +253,7 @@ describe("put-secrets action", () => {
 
     await run();
 
-    expect(core.setFailed).toHaveBeenCalledWith(
+    expect(coreMock.setFailed).toHaveBeenCalledWith(
       expect.stringContaining("Invalid tags JSON"),
     );
   });
@@ -261,7 +263,7 @@ describe("put-secrets action", () => {
 
     await run();
 
-    expect(core.setFailed).toHaveBeenCalled();
+    expect(coreMock.setFailed).toHaveBeenCalled();
   });
 
   test("handles invalid timeout value (less than 10)", async () => {
@@ -269,7 +271,7 @@ describe("put-secrets action", () => {
 
     await run();
 
-    expect(core.setFailed).toHaveBeenCalled();
+    expect(coreMock.setFailed).toHaveBeenCalled();
   });
 
   test("handles valid timeout value", async () => {
@@ -282,7 +284,7 @@ describe("put-secrets action", () => {
 
     await run();
 
-    expect(net.setDefaultAutoSelectFamilyAttemptTimeout).toHaveBeenCalledWith(
+    expect(netMock.setDefaultAutoSelectFamilyAttemptTimeout).toHaveBeenCalledWith(
       3000,
     );
   });

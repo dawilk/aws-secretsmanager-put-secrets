@@ -1,8 +1,8 @@
 import * as core from "@actions/core";
 import { setDefaultAutoSelectFamilyAttemptTimeout } from "net";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
-import { putSecret, isAuthError } from "./utils";
-import { getUserAgent } from "./constants";
+import { putSecret, isAuthError } from "./utils.js";
+import { getUserAgent } from "./constants.js";
 
 export async function run(): Promise<void> {
   try {

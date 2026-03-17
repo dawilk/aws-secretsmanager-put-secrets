@@ -1,4 +1,4 @@
-import * as core from "@actions/core";
+import { jest } from "@jest/globals";
 import { mockClient } from "aws-sdk-client-mock";
 import {
   GetSecretValueCommand,
@@ -12,7 +12,20 @@ import {
   ResourceExistsException,
   SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
-import {
+
+const coreMock = {
+  getInput: jest.fn(),
+  setFailed: jest.fn(),
+  setOutput: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+  warning: jest.fn(),
+  error: jest.fn(),
+};
+
+jest.unstable_mockModule("@actions/core", () => coreMock);
+
+const {
   getSecretValue,
   createSecret,
   describeSecret,
@@ -27,15 +40,13 @@ import {
   buildWorkflowRunUrl,
   mergeTags,
   tagsNeedUpdate,
-} from "../src/utils";
-import { ACTION_VERSION, getUserAgent } from "../src/constants";
+} = await import("../src/utils.js");
+const { ACTION_VERSION, getUserAgent } = await import("../src/constants.js");
 
 const TEST_NAME = "test/secret";
 const TEST_VALUE = "test!secret!value!";
 const TEST_ARN =
   "arn:aws:secretsmanager:us-east-1:123456789012:secret:test/secret-abc123";
-
-jest.mock("@actions/core");
 
 const smClient = new SecretsManagerClient({});
 const smMockClient = mockClient(smClient);
@@ -594,7 +605,7 @@ describe("putSecret orchestration", () => {
       tags: "",
     });
 
-    expect(core.info).toHaveBeenCalledWith(
+    expect(coreMock.info).toHaveBeenCalledWith(
       `Secret '${TEST_NAME}' is up-to-date.`,
     );
     expect(smMockClient).not.toHaveReceivedCommand(PutSecretValueCommand);
@@ -650,7 +661,7 @@ describe("putSecret orchestration", () => {
       tags: "",
     });
 
-    expect(core.info).toHaveBeenCalledWith(
+    expect(coreMock.info).toHaveBeenCalledWith(
       `Secret '${TEST_NAME}' is up-to-date.`,
     );
     expect(smMockClient).not.toHaveReceivedCommand(PutSecretValueCommand);

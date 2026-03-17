@@ -1,15 +1,13 @@
-module.exports = {
-  preset: "ts-jest",
-  testEnvironment: "node",
+// See: https://jestjs.io/docs/configuration
+
+/** @type {import('ts-jest').JestConfigWithTsJest} */
+export default {
+  clearMocks: true,
   collectCoverage: true,
   collectCoverageFrom: ["./src/**"],
-  coverageReporters: ["json-summary", "text", "lcov"],
   coverageDirectory: "./coverage",
-  testPathIgnorePatterns: [
-    "/node_modules/",
-    "/dist/",
-    "/__integration_tests__/",
-  ],
+  coveragePathIgnorePatterns: ["/node_modules/", "/dist/"],
+  coverageReporters: ["json-summary", "text", "lcov"],
   coverageThreshold: {
     global: {
       branches: 90,
@@ -18,4 +16,26 @@ module.exports = {
       statements: 90,
     },
   },
+  extensionsToTreatAsEsm: [".ts"],
+  moduleFileExtensions: ["ts", "js"],
+  preset: "ts-jest",
+  reporters: ["default"],
+  testEnvironment: "node",
+  testMatch: ["**/*.test.ts"],
+  testPathIgnorePatterns: ["/dist/", "/node_modules/", "/__integration_tests__/"],
+  moduleNameMapper: {
+    "^(\\.{1,2}/.*)\\.js$": "$1",
+    "^aws-sdk-client-mock-jest$":
+      "<rootDir>/node_modules/aws-sdk-client-mock-jest/dist/cjs/jest.js",
+  },
+  transform: {
+    "^.+\\.ts$": [
+      "ts-jest",
+      {
+        tsconfig: "tsconfig.json",
+        useESM: true,
+      },
+    ],
+  },
+  verbose: true,
 };

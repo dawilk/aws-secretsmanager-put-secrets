@@ -1,4 +1,5 @@
 // See: https://rollupjs.org/introduction/
+// Matches actions/typescript-action: ESM output for node24 runner (package.json "type": "module").
 
 import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
@@ -12,6 +13,7 @@ const config = {
     file: "dist/index.js",
     format: "es",
     sourcemap: true,
+    inlineDynamicImports: true,
   },
   plugins: [
     json(),
