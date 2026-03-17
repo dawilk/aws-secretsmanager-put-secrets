@@ -26,7 +26,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aws-actions/aws-secretsmanager-get-secrets.git"
+    "url": "git+https://github.com/dawilk/aws-secretsmanager-put-secrets.git"
   },
   "keywords": [
     "AWS",
@@ -37,9 +37,9 @@
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/aws-actions/aws-secretsmanager-get-secrets/issues"
+    "url": "https://github.com/dawilk/aws-secretsmanager-put-secrets/issues"
   },
-  "homepage": "https://github.com/aws-actions/aws-secretsmanager-get-secrets#readme",
+  "homepage": "https://github.com/dawilk/aws-secretsmanager-put-secrets#readme",
   "release": {
     "branches": [
       "main"
