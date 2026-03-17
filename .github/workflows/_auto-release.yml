@@ -15,6 +15,9 @@ jobs:
     if: startsWith(github.ref, 'refs/heads/')
     uses: dawilk/workflows/.github/workflows/semantic-release.yml@v1
     secrets: inherit
+    permissions:
+      contents: write
+      id-token: write
     with:
       dry_run: ${{ github.ref_name != 'main' }}
 
