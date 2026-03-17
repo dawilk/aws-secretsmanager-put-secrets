@@ -40,6 +40,28 @@
     "url": "https://github.com/aws-actions/aws-secretsmanager-get-secrets/issues"
   },
   "homepage": "https://github.com/aws-actions/aws-secretsmanager-get-secrets#readme",
+  "release": {
+    "branches": [
+      "main"
+    ],
+    "plugins": [
+      [
+        "@semantic-release/commit-analyzer",
+        {
+          "preset": "angular",
+          "releaseRules": []
+        }
+      ],
+      "@semantic-release/release-notes-generator",
+      [
+        "@semantic-release/npm",
+        {
+          "npmPublish": false
+        }
+      ],
+      "@semantic-release/github"
+    ]
+  },
   "dependencies": {
     "@actions/core": "^3.0.0",
     "@actions/github": "^9.0.0",
