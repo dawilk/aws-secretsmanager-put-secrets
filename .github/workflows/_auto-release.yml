@@ -13,7 +13,7 @@ jobs:
   release:
     name: Release
     if: startsWith(github.ref, 'refs/heads/')
-    uses: ./.github/workflows/semantic-release.yml
+    uses: dawilk/workflows/.github/workflows/semantic-release.yml@v1
     secrets: inherit
     with:
       dry_run: ${{ github.ref_name != 'main' }}
