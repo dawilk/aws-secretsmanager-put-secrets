@@ -2,8 +2,8 @@ name: Auto-Release
 
 on:
   push:
-    paths:
-      - ".github/workflows/*"
+    branches:
+      - main
 
 defaults:
   run:
