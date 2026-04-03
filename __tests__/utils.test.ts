@@ -5,6 +5,8 @@ import {
   CreateSecretCommand,
   DescribeSecretCommand,
   PutSecretValueCommand,
+  ListSecretVersionIdsCommand,
+  UpdateSecretVersionStageCommand,
   TagResourceCommand,
   ResourceNotFoundException,
   InvalidParameterException,
@@ -184,6 +186,14 @@ describe("createSecret", () => {
       "Failed to create secret 'test/secret': Internal server error",
     );
   });
+
+  test("throws generic error when CreateSecret rejects a non-Error", async () => {
+    smMockClient.on(CreateSecretCommand).rejects("not-an-error-object");
+
+    await expect(createSecret(smClient, TEST_NAME, TEST_VALUE)).rejects.toThrow(
+      "Failed to create secret 'test/secret': not-an-error-object",
+    );
+  });
 });
 
 describe("describeSecret", () => {
@@ -239,6 +249,7 @@ describe("describeSecret", () => {
 describe("putSecretValue", () => {
   beforeEach(() => {
     smMockClient.reset();
+    jest.clearAllMocks();
   });
 
   test("calls PutSecretValueCommand", async () => {
@@ -250,6 +261,268 @@ describe("putSecretValue", () => {
       SecretId: TEST_NAME,
       SecretString: TEST_VALUE,
     });
+  });
+
+  test("rethrows non-limit errors from PutSecretValue without recovery", async () => {
+    smMockClient
+      .on(PutSecretValueCommand)
+      .rejects(new Error("network failure"));
+
+    await expect(
+      putSecretValue(smClient, TEST_NAME, TEST_VALUE),
+    ).rejects.toThrow("network failure");
+
+    expect(smMockClient).not.toHaveReceivedCommand(ListSecretVersionIdsCommand);
+  });
+
+  test("on version limit, deprecates non-current versions and retries put", async () => {
+    const oldDate = new Date("2020-01-01T00:00:00.000Z");
+    const newDate = new Date("2020-06-01T00:00:00.000Z");
+
+    smMockClient
+      .on(PutSecretValueCommand)
+      .rejectsOnce(
+        new LimitExceededException({
+          $metadata: {},
+          message: "Too many versions",
+        }),
+      )
+      .resolves({});
+
+    smMockClient.on(ListSecretVersionIdsCommand).resolves({
+      Versions: [
+        {
+          VersionId: "ver-old",
+          VersionStages: ["AWSPREVIOUS"],
+          CreatedDate: oldDate,
+        },
+        {
+          VersionId: "ver-current",
+          VersionStages: ["AWSCURRENT"],
+          CreatedDate: newDate,
+        },
+      ],
+    });
+
+    smMockClient.on(UpdateSecretVersionStageCommand).resolves({});
+
+    await putSecretValue(smClient, TEST_NAME, TEST_VALUE);
+
+    expect(coreMock.warning).toHaveBeenCalledWith(
+      expect.stringContaining("Secret version limit reached"),
+    );
+    expect(smMockClient).toHaveReceivedCommandWith(
+      ListSecretVersionIdsCommand,
+      {
+        SecretId: TEST_NAME,
+        IncludeDeprecated: true,
+      },
+    );
+    expect(smMockClient).toHaveReceivedCommandWith(
+      UpdateSecretVersionStageCommand,
+      {
+        SecretId: TEST_NAME,
+        VersionStage: "AWSPREVIOUS",
+        RemoveFromVersionId: "ver-old",
+      },
+    );
+    expect(smMockClient.commandCalls(PutSecretValueCommand).length).toBe(2);
+  });
+
+  test("rethrows with context when retry after version limit fails", async () => {
+    smMockClient.on(PutSecretValueCommand).rejects(
+      new LimitExceededException({
+        $metadata: {},
+        message: "Too many versions",
+      }),
+    );
+
+    smMockClient.on(ListSecretVersionIdsCommand).resolves({
+      Versions: [
+        {
+          VersionId: "ver-old",
+          VersionStages: ["AWSPREVIOUS"],
+          CreatedDate: new Date("2020-01-01"),
+        },
+        {
+          VersionId: "ver-current",
+          VersionStages: ["AWSCURRENT"],
+          CreatedDate: new Date("2020-06-01"),
+        },
+      ],
+    });
+
+    smMockClient.on(UpdateSecretVersionStageCommand).resolves({});
+
+    await expect(
+      putSecretValue(smClient, TEST_NAME, TEST_VALUE),
+    ).rejects.toThrow(
+      /PutSecretValue failed after attempting to free secret versions/,
+    );
+  });
+
+  test("retry failure includes non-Error rejection message", async () => {
+    smMockClient
+      .on(PutSecretValueCommand)
+      .rejectsOnce(
+        new LimitExceededException({
+          $metadata: {},
+          message: "Too many versions",
+        }),
+      )
+      .rejectsOnce("quota");
+
+    smMockClient.on(ListSecretVersionIdsCommand).resolves({
+      Versions: [
+        {
+          VersionId: "ver-old",
+          VersionStages: ["AWSPREVIOUS"],
+          CreatedDate: new Date("2020-01-01"),
+        },
+        {
+          VersionId: "ver-current",
+          VersionStages: ["AWSCURRENT"],
+          CreatedDate: new Date("2020-06-01"),
+        },
+      ],
+    });
+
+    smMockClient.on(UpdateSecretVersionStageCommand).resolves({});
+
+    await expect(
+      putSecretValue(smClient, TEST_NAME, TEST_VALUE),
+    ).rejects.toThrow(
+      /PutSecretValue failed after attempting to free secret versions: quota/,
+    );
+  });
+
+  test("paginates ListSecretVersionIds when deprecating", async () => {
+    const oldDate = new Date("2020-01-01T00:00:00.000Z");
+    const newDate = new Date("2020-06-01T00:00:00.000Z");
+
+    smMockClient
+      .on(PutSecretValueCommand)
+      .rejectsOnce(
+        new LimitExceededException({
+          $metadata: {},
+          message: "Too many versions",
+        }),
+      )
+      .resolves({});
+
+    smMockClient
+      .on(ListSecretVersionIdsCommand)
+      .resolvesOnce({
+        Versions: [
+          {
+            VersionId: "ver-old",
+            VersionStages: ["AWSPREVIOUS"],
+            CreatedDate: oldDate,
+          },
+        ],
+        NextToken: "next-page",
+      })
+      .resolvesOnce({
+        Versions: [
+          {
+            VersionId: "ver-current",
+            VersionStages: ["AWSCURRENT"],
+            CreatedDate: newDate,
+          },
+        ],
+      });
+
+    smMockClient.on(UpdateSecretVersionStageCommand).resolves({});
+
+    await putSecretValue(smClient, TEST_NAME, TEST_VALUE);
+
+    const listCalls = smMockClient.commandCalls(ListSecretVersionIdsCommand);
+    expect(listCalls.length).toBe(2);
+    expect(listCalls[1].args[0].input).toMatchObject({
+      NextToken: "next-page",
+    });
+  });
+
+  test("skips version entries with no VersionId when deprecating", async () => {
+    smMockClient
+      .on(PutSecretValueCommand)
+      .rejectsOnce(
+        new LimitExceededException({
+          $metadata: {},
+          message: "Too many versions",
+        }),
+      )
+      .resolves({});
+
+    smMockClient.on(ListSecretVersionIdsCommand).resolves({
+      Versions: [
+        {
+          VersionStages: ["AWSPREVIOUS"],
+          CreatedDate: new Date("2019-01-01"),
+        },
+        {
+          VersionId: "ver-current",
+          VersionStages: ["AWSCURRENT"],
+          CreatedDate: new Date("2020-06-01"),
+        },
+      ],
+    });
+
+    smMockClient.on(UpdateSecretVersionStageCommand).resolves({});
+
+    await putSecretValue(smClient, TEST_NAME, TEST_VALUE);
+
+    expect(smMockClient).not.toHaveReceivedCommand(
+      UpdateSecretVersionStageCommand,
+    );
+  });
+
+  test("deprecates versions missing CreatedDate and skips empty VersionStages", async () => {
+    smMockClient
+      .on(PutSecretValueCommand)
+      .rejectsOnce(
+        new LimitExceededException({
+          $metadata: {},
+          message: "Too many versions",
+        }),
+      )
+      .resolves({});
+
+    smMockClient.on(ListSecretVersionIdsCommand).resolves({
+      Versions: [
+        {
+          VersionId: "ver-old",
+          VersionStages: ["AWSPREVIOUS"],
+        },
+        {
+          VersionId: "ver-no-stages",
+          CreatedDate: new Date("2019-01-01"),
+          VersionStages: [],
+        },
+        {
+          VersionId: "ver-current",
+          VersionStages: ["AWSCURRENT"],
+          CreatedDate: new Date("2020-06-01"),
+        },
+      ],
+    });
+
+    smMockClient.on(UpdateSecretVersionStageCommand).resolves({});
+
+    await putSecretValue(smClient, TEST_NAME, TEST_VALUE);
+
+    expect(smMockClient).toHaveReceivedCommandWith(
+      UpdateSecretVersionStageCommand,
+      {
+        SecretId: TEST_NAME,
+        VersionStage: "AWSPREVIOUS",
+        RemoveFromVersionId: "ver-old",
+      },
+    );
+    const updateCalls = smMockClient.commandCalls(
+      UpdateSecretVersionStageCommand,
+    );
+    expect(updateCalls.length).toBe(1);
   });
 });
 
@@ -365,6 +638,10 @@ describe("jsonEqual", () => {
 
   test("returns true for equivalent JSON with different whitespace", () => {
     expect(jsonEqual('{"a": 1}', '{"a":1}')).toBe(true);
+  });
+
+  test("returns true when object values include arrays", () => {
+    expect(jsonEqual('{"ids":[1,2,3]}', '{"ids":[1,2,3]}')).toBe(true);
   });
 
   test("returns false for different JSON", () => {
@@ -611,6 +888,57 @@ describe("putSecret orchestration", () => {
       `Secret '${TEST_NAME}' is up-to-date.`,
     );
     expect(smMockClient).not.toHaveReceivedCommand(PutSecretValueCommand);
+  });
+
+  test("up-to-date with workflow URL does not tag when workflow-run:check already matches", async () => {
+    smMockClient
+      .on(GetSecretValueCommand)
+      .resolves({ Name: TEST_NAME, SecretString: TEST_VALUE })
+      .on(DescribeSecretCommand)
+      .resolves({
+        ARN: TEST_ARN,
+        Tags: [
+          {
+            Key: "github-actions:workflow-run:check",
+            Value: "https://github.com/owner/repo/actions/runs/12345",
+          },
+        ],
+      });
+
+    await putSecret(smClient, {
+      secretId: TEST_NAME,
+      secretValue: TEST_VALUE,
+      tags: "",
+    });
+
+    expect(coreMock.info).toHaveBeenCalledWith(
+      `Secret '${TEST_NAME}' is up-to-date.`,
+    );
+    expect(smMockClient).not.toHaveReceivedCommand(TagResourceCommand);
+  });
+
+  test("up-to-date without workflow URL and no user tags skips tag refresh", async () => {
+    delete process.env.GITHUB_SERVER_URL;
+    delete process.env.GITHUB_REPOSITORY;
+    delete process.env.GITHUB_RUN_ID;
+
+    smMockClient
+      .on(GetSecretValueCommand)
+      .resolves({ Name: TEST_NAME, SecretString: TEST_VALUE })
+      .on(DescribeSecretCommand)
+      .resolves({ ARN: TEST_ARN, Tags: [] });
+
+    await putSecret(smClient, {
+      secretId: TEST_NAME,
+      secretValue: TEST_VALUE,
+      tags: "",
+    });
+
+    expect(coreMock.info).toHaveBeenCalledWith(
+      `Secret '${TEST_NAME}' is up-to-date.`,
+    );
+    expect(smMockClient).not.toHaveReceivedCommand(TagResourceCommand);
+    expect(smMockClient.commandCalls(DescribeSecretCommand).length).toBe(1);
   });
 
   test("updates secret and applies user tags when no workflow URL (e.g. local run)", async () => {
