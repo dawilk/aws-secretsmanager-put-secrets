@@ -42,7 +42,8 @@ const {
   tagsNeedUpdate,
   parseDotenvTextToJsonSecretString,
 } = await import("../src/utils.js");
-const { ACTION_VERSION, getUserAgent } = await import("../src/constants.js");
+const { ACTION_VERSION, getActionRefOrSha, getUserAgent } =
+  await import("../src/constants.js");
 
 const TEST_NAME = "test/secret";
 const TEST_VALUE = "test!secret!value!";
@@ -710,12 +711,43 @@ BAZ=qux=z
 });
 
 describe("Version Constants", () => {
-  it("should have a valid version format", () => {
+  const OLD_ENV = process.env;
+
+  beforeEach(() => {
+    process.env = { ...OLD_ENV };
+    delete process.env.GITHUB_ACTION_REF;
+    delete process.env.GITHUB_ACTION_PATH;
+  });
+
+  afterEach(() => {
+    process.env = OLD_ENV;
+  });
+
+  it("should have a valid package semver format", () => {
     expect(ACTION_VERSION).toMatch(/^v\d+\.\d+\.\d+$/);
   });
 
-  it("should return user agent with version", () => {
-    const userAgent = getUserAgent();
-    expect(userAgent).toMatch(/^github-action\/v\d+\.\d+\.\d+$/);
+  it("uses package semver when no GitHub action env is set", () => {
+    expect(getActionRefOrSha()).toBe(ACTION_VERSION);
+    expect(getUserAgent()).toBe(`github-action/${ACTION_VERSION}`);
+  });
+
+  it("prefers GITHUB_ACTION_REF when set", () => {
+    process.env.GITHUB_ACTION_REF = "refs/tags/v3.0.0";
+    expect(getActionRefOrSha()).toBe("refs/tags/v3.0.0");
+    expect(getUserAgent()).toBe("github-action/refs/tags/v3.0.0");
+  });
+
+  it("uses 40-char SHA from GITHUB_ACTION_PATH basename when GITHUB_ACTION_REF is unset", () => {
+    const sha = "a1b2c3d4e5f6789012345678901234567890abcd";
+    process.env.GITHUB_ACTION_PATH = `/home/runner/work/_actions/org/repo/${sha}`;
+    expect(getActionRefOrSha()).toBe(sha);
+    expect(getUserAgent()).toBe(`github-action/${sha}`);
+  });
+
+  it("ignores GITHUB_ACTION_PATH basename when it is not a full git SHA", () => {
+    process.env.GITHUB_ACTION_PATH =
+      "/home/runner/work/_actions/org/repo/v1.2.3";
+    expect(getActionRefOrSha()).toBe(ACTION_VERSION);
   });
 });
