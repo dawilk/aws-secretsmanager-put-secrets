@@ -38,12 +38,12 @@ import require$$0$9, { Readable, Writable } from 'stream';
 import require$$1$7 from 'process';
 import require$$1$8, { parse as parse$1 } from 'url';
 import require$$1$9 from 'module';
+import path$1, { normalize, sep as sep$1, join as join$1, dirname } from 'node:path';
 import { Buffer as Buffer$1 } from 'buffer';
 import fs$1, { readFile as readFile$2 } from 'node:fs/promises';
 import { ReadStream, lstatSync, fstatSync, promises as promises$1, readFileSync } from 'node:fs';
 import { createHash as createHash$1, createPrivateKey, createPublicKey, sign } from 'node:crypto';
 import { platform, release, homedir as homedir$1 } from 'node:os';
-import { normalize, sep as sep$1, join as join$1, dirname } from 'node:path';
 import { exec } from 'node:child_process';
 import { readFile as readFile$1 } from 'fs/promises';
 import { versions, env } from 'node:process';
@@ -28043,6 +28043,27 @@ function getInput(name, options) {
     }
     return val.trim();
 }
+/**
+ * Gets the input value of the boolean type in the YAML 1.2 "core schema" specification.
+ * Support boolean input list: `true | True | TRUE | false | False | FALSE` .
+ * The return value is also in boolean type.
+ * ref: https://yaml.org/spec/1.2/spec.html#id2804923
+ *
+ * @param     name     name of the input to get
+ * @param     options  optional. See InputOptions.
+ * @returns   boolean
+ */
+function getBooleanInput(name, options) {
+    const trueValue = ['true', 'True', 'TRUE'];
+    const falseValue = ['false', 'False', 'FALSE'];
+    const val = getInput(name, options);
+    if (trueValue.includes(val))
+        return true;
+    if (falseValue.includes(val))
+        return false;
+    throw new TypeError(`Input does not meet YAML 1.2 "Core Schema" specification: ${name}\n` +
+        `Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
+}
 //-----------------------------------------------------------------------
 // Results
 //-----------------------------------------------------------------------
@@ -28062,6 +28083,14 @@ function setFailed(message) {
  */
 function error(message, properties = {}) {
     issueCommand('error', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
+}
+/**
+ * Adds a warning issue
+ * @param message warning issue message. Errors will be converted to string via toString()
+ * @param properties optional properties to add to the annotation.
+ */
+function warning(message, properties = {}) {
+    issueCommand('warning', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
 }
 /**
  * Writes info to log with console.log.
@@ -38892,20 +38921,28 @@ const _FORS = "ForceOverwriteReplicaSecret";
 const _GSV = "GetSecretValue";
 const _GSVR = "GetSecretValueRequest";
 const _GSVRe = "GetSecretValueResponse";
+const _ID = "IncludeDeprecated";
 const _INTE = "InvalidNextTokenException";
 const _IPE = "InvalidParameterException";
 const _IRE$2 = "InvalidRequestException";
 const _ISE$2 = "InternalServiceError";
 const _K$1 = "Key";
 const _KKI = "KmsKeyId";
+const _KKIm = "KmsKeyIds";
 const _LAD = "LastAccessedDate";
 const _LCD = "LastChangedDate";
 const _LEE = "LimitExceededException";
 const _LRD = "LastRotatedDate";
+const _LSVI = "ListSecretVersionIds";
+const _LSVIR = "ListSecretVersionIdsRequest";
+const _LSVIRi = "ListSecretVersionIdsResponse";
 const _M = "Message";
 const _MPDE$1 = "MalformedPolicyDocumentException";
+const _MR = "MaxResults";
+const _MTVI = "MoveToVersionId";
 const _N = "Name";
 const _NRD = "NextRotationDate";
+const _NT = "NextToken";
 const _OS = "OwningService";
 const _PNME = "PreconditionNotMetException";
 const _PPE = "PublicPolicyException";
@@ -38916,6 +38953,7 @@ const _PSVRu = "PutSecretValueResponse";
 const _R = "Region";
 const _RE = "RotationEnabled";
 const _REE = "ResourceExistsException";
+const _RFVI = "RemoveFromVersionId";
 const _RLARN = "RotationLambdaARN";
 const _RNFE$1 = "ResourceNotFoundException";
 const _RR = "RotationRules";
@@ -38934,6 +38972,8 @@ const _SI$1 = "SecretId";
 const _SM = "StatusMessage";
 const _SS = "SecretString";
 const _SST = "SecretStringType";
+const _SVLE = "SecretVersionsListEntry";
+const _SVLT = "SecretVersionsListType";
 const _SVTSMT = "SecretVersionsToStagesMapType";
 const _T$1 = "Tags";
 const _TLT = "TagListType";
@@ -38941,11 +38981,15 @@ const _TR = "TagResource";
 const _TRR = "TagResourceRequest";
 const _Ta$1 = "Tag";
 const _Ty = "Type";
+const _USVS = "UpdateSecretVersionStage";
+const _USVSR = "UpdateSecretVersionStageRequest";
+const _USVSRp = "UpdateSecretVersionStageResponse";
 const _V$1 = "Value";
 const _VI = "VersionId";
 const _VITS = "VersionIdsToStages";
 const _VS = "VersionStage";
 const _VSe = "VersionStages";
+const _Ve = "Versions";
 const _c$4 = "client";
 const _e$4 = "error";
 const _s$4 = "smithy.ts.sdk.synthetic.com.amazonaws.secretsmanager";
@@ -39069,6 +39113,16 @@ var GetSecretValueResponse$ = [3, n0$4, _GSVRe,
     [_ARN, _N, _VI, _SB, _SS, _VSe, _CD],
     [0, 0, 0, [() => SecretBinaryType, 0], [() => SecretStringType, 0], 64 | 0, 4]
 ];
+var ListSecretVersionIdsRequest$ = [3, n0$4, _LSVIR,
+    0,
+    [_SI$1, _MR, _NT, _ID],
+    [0, 1, 0, 2], 1
+];
+var ListSecretVersionIdsResponse$ = [3, n0$4, _LSVIRi,
+    0,
+    [_Ve, _NT, _ARN, _N],
+    [() => SecretVersionsListType, 0, 0, 0]
+];
 var PutSecretValueRequest$ = [3, n0$4, _PSVR,
     0,
     [_SI$1, _CRT, _SB, _SS, _VSe, _RT$2],
@@ -39094,6 +39148,11 @@ var RotationRulesType$ = [3, n0$4, _RRTo,
     [_AAD, _Du, _SE],
     [1, 0, 0]
 ];
+var SecretVersionsListEntry$ = [3, n0$4, _SVLE,
+    0,
+    [_VI, _VSe, _LAD, _CD, _KKIm],
+    [0, 64 | 0, 4, 4, 64 | 0]
+];
 var Tag$$1 = [3, n0$4, _Ta$1,
     0,
     [_K$1, _V$1],
@@ -39104,6 +39163,16 @@ var TagResourceRequest$ = [3, n0$4, _TRR,
     [_SI$1, _T$1],
     [0, () => TagListType], 2
 ];
+var UpdateSecretVersionStageRequest$ = [3, n0$4, _USVSR,
+    0,
+    [_SI$1, _VS, _RFVI, _MTVI],
+    [0, 0, 0, 0], 2
+];
+var UpdateSecretVersionStageResponse$ = [3, n0$4, _USVSRp,
+    0,
+    [_ARN, _N],
+    [0, 0]
+];
 var __Unit = "unit";
 var AddReplicaRegionListType = [1, n0$4, _ARRLT,
     0, () => ReplicaRegionType$
@@ -39113,6 +39182,9 @@ var ExternalSecretRotationMetadataType = [1, n0$4, _ESRMT,
 ];
 var ReplicationStatusListType = [1, n0$4, _RSLT,
     0, () => ReplicationStatusType$
+];
+var SecretVersionsListType = [1, n0$4, _SVLT,
+    0, () => SecretVersionsListEntry$
 ];
 var TagListType = [1, n0$4, _TLT,
     0, () => Tag$$1
@@ -39126,11 +39198,17 @@ var DescribeSecret$ = [9, n0$4, _DSe,
 var GetSecretValue$ = [9, n0$4, _GSV,
     0, () => GetSecretValueRequest$, () => GetSecretValueResponse$
 ];
+var ListSecretVersionIds$ = [9, n0$4, _LSVI,
+    0, () => ListSecretVersionIdsRequest$, () => ListSecretVersionIdsResponse$
+];
 var PutSecretValue$ = [9, n0$4, _PSV,
     0, () => PutSecretValueRequest$, () => PutSecretValueResponse$
 ];
 var TagResource$ = [9, n0$4, _TR,
     0, () => TagResourceRequest$, () => __Unit
+];
+var UpdateSecretVersionStage$ = [9, n0$4, _USVS,
+    0, () => UpdateSecretVersionStageRequest$, () => UpdateSecretVersionStageResponse$
 ];
 
 const getRuntimeConfig$9 = (config) => {
@@ -39343,6 +39421,18 @@ class GetSecretValueCommand extends Command
     .build() {
 }
 
+class ListSecretVersionIdsCommand extends Command
+    .classBuilder()
+    .ep(commonParams$4)
+    .m(function (Command, cs, config, o) {
+    return [getEndpointPlugin(config, Command.getEndpointParameterInstructions())];
+})
+    .s("secretsmanager", "ListSecretVersionIds", {})
+    .n("SecretsManagerClient", "ListSecretVersionIdsCommand")
+    .sc(ListSecretVersionIds$)
+    .build() {
+}
+
 class PutSecretValueCommand extends Command
     .classBuilder()
     .ep(commonParams$4)
@@ -39364,6 +39454,18 @@ class TagResourceCommand extends Command
     .s("secretsmanager", "TagResource", {})
     .n("SecretsManagerClient", "TagResourceCommand")
     .sc(TagResource$)
+    .build() {
+}
+
+class UpdateSecretVersionStageCommand extends Command
+    .classBuilder()
+    .ep(commonParams$4)
+    .m(function (Command, cs, config, o) {
+    return [getEndpointPlugin(config, Command.getEndpointParameterInstructions())];
+})
+    .s("secretsmanager", "UpdateSecretVersionStage", {})
+    .n("SecretsManagerClient", "UpdateSecretVersionStageCommand")
+    .sc(UpdateSecretVersionStage$)
     .build() {
 }
 
@@ -81124,6 +81226,32 @@ function parseTagsInput(tagsStr) {
     }
 }
 /**
+ * Parses dotenv-style lines (KEY=VALUE per line, # comments, first '=' splits key/value)
+ * into a JSON object string suitable for SecretString storage.
+ */
+function parseDotenvTextToJsonSecretString(text) {
+    const lines = text.split("\n");
+    const obj = {};
+    for (const rawLine of lines) {
+        const line = rawLine.replace(/\r$/, "").trim();
+        if (line === "" || line.startsWith("#")) {
+            continue;
+        }
+        const eq = line.indexOf("=");
+        if (eq === -1) {
+            const preview = line.length > 80 ? `${line.slice(0, 80)}...` : line;
+            throw new Error(`Invalid dotenv line (expected KEY=VALUE): ${preview}`);
+        }
+        const key = line.slice(0, eq).trim();
+        const value = line.slice(eq + 1).trim();
+        if (key === "") {
+            throw new Error("Invalid dotenv line: empty key");
+        }
+        obj[key] = value;
+    }
+    return JSON.stringify(obj);
+}
+/**
  * Builds the GitHub Actions workflow run URL from environment variables
  */
 function buildWorkflowRunUrl() {
@@ -81152,14 +81280,75 @@ function tagsNeedUpdate(current, desired) {
     }
     return false;
 }
+async function listAllSecretVersionEntries(client, secretId) {
+    const entries = [];
+    let nextToken;
+    do {
+        const page = await client.send(new ListSecretVersionIdsCommand({
+            SecretId: secretId,
+            IncludeDeprecated: true,
+            NextToken: nextToken,
+        }));
+        if (page.Versions?.length) {
+            entries.push(...page.Versions);
+        }
+        nextToken = page.NextToken;
+    } while (nextToken);
+    return entries;
+}
+/**
+ * Removes all staging labels from non-current versions so AWS can deprecate them (subject to
+ * retention rules such as the 24-hour window for recent versions).
+ */
+async function deprecateNonCurrentSecretVersions(client, secretId) {
+    const versions = await listAllSecretVersionEntries(client, secretId);
+    const sorted = [...versions].sort((a, b) => {
+        const ta = a.CreatedDate?.getTime() ?? 0;
+        const tb = b.CreatedDate?.getTime() ?? 0;
+        return ta - tb;
+    });
+    const currentId = sorted.find((v) => v.VersionStages?.includes("AWSCURRENT"))?.VersionId;
+    for (const ver of sorted) {
+        const versionId = ver.VersionId;
+        if (!versionId || versionId === currentId) {
+            continue;
+        }
+        const stages = [...(ver.VersionStages ?? [])];
+        for (const stage of stages) {
+            await client.send(new UpdateSecretVersionStageCommand({
+                SecretId: secretId,
+                VersionStage: stage,
+                RemoveFromVersionId: versionId,
+            }));
+        }
+    }
+}
 /**
  * Puts a new secret value (updates existing secret)
  */
 async function putSecretValue(client, secretId, secretValue) {
-    await client.send(new PutSecretValueCommand({
+    const sendPut = () => client.send(new PutSecretValueCommand({
         SecretId: secretId,
         SecretString: secretValue,
     }));
+    try {
+        await sendPut();
+    }
+    catch (err) {
+        if (!(err instanceof LimitExceededException)) {
+            throw err;
+        }
+        warning("Secret version limit reached; deprecating non-current versions and retrying. " +
+            "If this persists, reduce update frequency or wait for AWS to expire old versions (often 24h for recent versions).");
+        await deprecateNonCurrentSecretVersions(client, secretId);
+        try {
+            await sendPut();
+        }
+        catch (err2) {
+            const msg = err2 instanceof Error ? err2.message : String(err2);
+            throw new Error(`PutSecretValue failed after attempting to free secret versions: ${msg}`);
+        }
+    }
 }
 /**
  * Applies tags to a secret
@@ -81234,9 +81423,29 @@ var version$1 = "2.0.11";
 var packageJson = {
 	version: version$1};
 
+/** Package semver (e.g. v2.0.11); used when the action ref cannot be resolved at runtime. */
 const ACTION_VERSION = `v${packageJson.version}`;
+const FULL_SHA_HEX = /^[a-f0-9]{40}$/i;
+/**
+ * Resolves the action ref or commit SHA available at runtime on GitHub Actions, or the package
+ * semver when running locally or when the runner does not expose ref metadata.
+ */
+function getActionRefOrSha() {
+    const actionRef = process.env.GITHUB_ACTION_REF?.trim();
+    if (actionRef) {
+        return actionRef;
+    }
+    const actionPath = process.env.GITHUB_ACTION_PATH?.trim();
+    if (actionPath) {
+        const base = path$1.basename(actionPath);
+        if (FULL_SHA_HEX.test(base)) {
+            return base;
+        }
+    }
+    return ACTION_VERSION;
+}
 function getUserAgent() {
-    return `github-action/${ACTION_VERSION}`;
+    return `github-action/${getActionRefOrSha()}`;
 }
 
 async function run() {
@@ -81255,7 +81464,11 @@ async function run() {
             customUserAgent: getUserAgent(),
         });
         const secretId = getInput("secret-id", { required: true });
-        const secretValue = getInput("secret-value", { required: true });
+        const secretValueRaw = getInput("secret-value", { required: true });
+        const txtToJson = getBooleanInput("txt-to-json");
+        const secretValue = txtToJson
+            ? parseDotenvTextToJsonSecretString(secretValueRaw)
+            : secretValueRaw;
         const tags = getInput("tags");
         await putSecret(client, { secretId, secretValue, tags });
         info("Completed putting secret.");
