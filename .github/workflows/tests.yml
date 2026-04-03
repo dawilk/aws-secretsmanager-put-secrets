@@ -55,6 +55,8 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
+      - name: Build
+        uses: ./.github/actions/build
       - name: Put secret (basic)
         uses: ./
         with:
@@ -80,6 +82,8 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
+      - name: Build
+        uses: ./.github/actions/build
       - name: Put secret (JSON)
         uses: ./
         with:
@@ -105,6 +109,8 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
+      - name: Build
+        uses: ./.github/actions/build
       - name: Put secret (with tags)
         uses: ./
         with:
@@ -130,6 +136,8 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
+      - name: Build
+        uses: ./.github/actions/build
       - name: Put secret (us-east-1)
         uses: ./
         with:
