@@ -81419,7 +81419,7 @@ async function putSecret(client, inputs) {
     }
 }
 
-var version$1 = "2.0.11";
+var version$1 = "0.1.0";
 var packageJson = {
 	version: version$1};
 
