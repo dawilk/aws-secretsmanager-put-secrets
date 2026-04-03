@@ -5,11 +5,14 @@ import {
   CreateSecretCommand,
   DescribeSecretCommand,
   PutSecretValueCommand,
+  ListSecretVersionIdsCommand,
+  UpdateSecretVersionStageCommand,
   TagResourceCommand,
   ResourceNotFoundException,
   InvalidParameterException,
   LimitExceededException,
   ResourceExistsException,
+  type SecretVersionsListEntry,
 } from "@aws-sdk/client-secrets-manager";
 import "aws-sdk-client-mock-jest";
 
@@ -222,6 +225,38 @@ export function parseTagsInput(tagsStr: string): Record<string, string> {
 }
 
 /**
+ * Parses dotenv-style lines (KEY=VALUE per line, # comments, first '=' splits key/value)
+ * into a JSON object string suitable for SecretString storage.
+ */
+export function parseDotenvTextToJsonSecretString(text: string): string {
+  const lines = text.split("\n");
+  const obj: Record<string, string> = {};
+
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\r$/, "").trim();
+    if (line === "" || line.startsWith("#")) {
+      continue;
+    }
+
+    const eq = line.indexOf("=");
+    if (eq === -1) {
+      const preview = line.length > 80 ? `${line.slice(0, 80)}...` : line;
+      throw new Error(`Invalid dotenv line (expected KEY=VALUE): ${preview}`);
+    }
+
+    const key = line.slice(0, eq).trim();
+    const value = line.slice(eq + 1).trim();
+    if (key === "") {
+      throw new Error("Invalid dotenv line: empty key");
+    }
+
+    obj[key] = value;
+  }
+
+  return JSON.stringify(obj);
+}
+
+/**
  * Builds the GitHub Actions workflow run URL from environment variables
  */
 export function buildWorkflowRunUrl(): string | undefined {
@@ -259,6 +294,65 @@ export function tagsNeedUpdate(
   return false;
 }
 
+async function listAllSecretVersionEntries(
+  client: SecretsManagerClient,
+  secretId: string,
+): Promise<SecretVersionsListEntry[]> {
+  const entries: SecretVersionsListEntry[] = [];
+  let nextToken: string | undefined;
+  do {
+    const page = await client.send(
+      new ListSecretVersionIdsCommand({
+        SecretId: secretId,
+        IncludeDeprecated: true,
+        NextToken: nextToken,
+      }),
+    );
+    if (page.Versions?.length) {
+      entries.push(...page.Versions);
+    }
+    nextToken = page.NextToken;
+  } while (nextToken);
+
+  return entries;
+}
+
+/**
+ * Removes all staging labels from non-current versions so AWS can deprecate them (subject to
+ * retention rules such as the 24-hour window for recent versions).
+ */
+async function deprecateNonCurrentSecretVersions(
+  client: SecretsManagerClient,
+  secretId: string,
+): Promise<void> {
+  const versions = await listAllSecretVersionEntries(client, secretId);
+  const sorted = [...versions].sort((a, b) => {
+    const ta = a.CreatedDate?.getTime() ?? 0;
+    const tb = b.CreatedDate?.getTime() ?? 0;
+    return ta - tb;
+  });
+  const currentId = sorted.find((v) =>
+    v.VersionStages?.includes("AWSCURRENT"),
+  )?.VersionId;
+
+  for (const ver of sorted) {
+    const versionId = ver.VersionId;
+    if (!versionId || versionId === currentId) {
+      continue;
+    }
+    const stages = [...(ver.VersionStages ?? [])];
+    for (const stage of stages) {
+      await client.send(
+        new UpdateSecretVersionStageCommand({
+          SecretId: secretId,
+          VersionStage: stage,
+          RemoveFromVersionId: versionId,
+        }),
+      );
+    }
+  }
+}
+
 /**
  * Puts a new secret value (updates existing secret)
  */
@@ -267,12 +361,34 @@ export async function putSecretValue(
   secretId: string,
   secretValue: string,
 ): Promise<void> {
-  await client.send(
-    new PutSecretValueCommand({
-      SecretId: secretId,
-      SecretString: secretValue,
-    }),
-  );
+  const sendPut = () =>
+    client.send(
+      new PutSecretValueCommand({
+        SecretId: secretId,
+        SecretString: secretValue,
+      }),
+    );
+
+  try {
+    await sendPut();
+  } catch (err) {
+    if (!(err instanceof LimitExceededException)) {
+      throw err;
+    }
+    core.warning(
+      "Secret version limit reached; deprecating non-current versions and retrying. " +
+        "If this persists, reduce update frequency or wait for AWS to expire old versions (often 24h for recent versions).",
+    );
+    await deprecateNonCurrentSecretVersions(client, secretId);
+    try {
+      await sendPut();
+    } catch (err2) {
+      const msg = err2 instanceof Error ? err2.message : String(err2);
+      throw new Error(
+        `PutSecretValue failed after attempting to free secret versions: ${msg}`,
+      );
+    }
+  }
 }
 
 /**

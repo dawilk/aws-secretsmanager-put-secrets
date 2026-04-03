@@ -6,11 +6,15 @@ branding:
   color: "orange"
 inputs:
   secret-id:
-    description: "The name or ARN of the secret to create or update"
+    description: "The name or ARN of the secret to create or update. If automatic recovery from the per-secret version quota runs, IAM must also allow secretsmanager:ListSecretVersionIds and secretsmanager:UpdateSecretVersionStage."
     required: true
   secret-value:
     description: "The secret value (raw text or JSON string) to store"
     required: true
+  txt-to-json:
+    description: "When true, parse secret-value as dotenv-style lines (KEY=VALUE, # comments) and store a JSON object string"
+    required: false
+    default: "false"
   tags:
     description: '(Optional) JSON object string of tags to apply, e.g. {"Environment":"prod","Team":"platform"}'
     required: false

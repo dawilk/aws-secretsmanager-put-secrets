@@ -13,6 +13,7 @@ import {
 
 const coreMock = {
   getInput: jest.fn(),
+  getBooleanInput: jest.fn(),
   setFailed: jest.fn(),
   info: jest.fn(),
   debug: jest.fn(),
@@ -43,14 +44,19 @@ const SECRET_ARN =
 const DEFAULT_TIMEOUT = "1000";
 
 function mockGetInput(overrides: Record<string, string> = {}) {
-  coreMock.getInput.mockImplementation((name: string) => {
-    const defaults: Record<string, string> = {
-      "auto-select-family-attempt-timeout": DEFAULT_TIMEOUT,
-      "secret-id": SECRET_ID,
-      "secret-value": SECRET_VALUE,
-      tags: "",
-    };
-    return overrides[name] ?? defaults[name] ?? "";
+  const defaults: Record<string, string> = {
+    "auto-select-family-attempt-timeout": DEFAULT_TIMEOUT,
+    "secret-id": SECRET_ID,
+    "secret-value": SECRET_VALUE,
+    "txt-to-json": "false",
+    tags: "",
+  };
+  const resolve = (name: string) => overrides[name] ?? defaults[name] ?? "";
+
+  coreMock.getInput.mockImplementation((name: string) => resolve(name));
+  coreMock.getBooleanInput.mockImplementation((name: string) => {
+    const v = resolve(name).toLowerCase();
+    return v === "true";
   });
 }
 
@@ -287,5 +293,30 @@ describe("put-secrets action", () => {
     expect(netMock.setDefaultAutoSelectFamilyAttemptTimeout).toHaveBeenCalledWith(
       3000,
     );
+  });
+
+  test("txt-to-json converts dotenv lines to JSON secret string on put", async () => {
+    const dotenv = `FOO=bar
+# comment
+BAZ=qux=more`;
+    const expectedJson = JSON.stringify({ FOO: "bar", BAZ: "qux=more" });
+    mockGetInput({ "txt-to-json": "true", "secret-value": dotenv });
+
+    smMockClient
+      .on(GetSecretValueCommand)
+      .resolves({ Name: SECRET_ID, SecretString: "old" })
+      .on(DescribeSecretCommand)
+      .resolves({ ARN: SECRET_ARN, Tags: [] })
+      .on(PutSecretValueCommand)
+      .resolves({})
+      .on(TagResourceCommand)
+      .resolves({});
+
+    await run();
+
+    expect(smMockClient).toHaveReceivedCommandWith(PutSecretValueCommand, {
+      SecretId: SECRET_ID,
+      SecretString: expectedJson,
+    });
   });
 });
