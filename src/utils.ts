@@ -222,6 +222,38 @@ export function parseTagsInput(tagsStr: string): Record<string, string> {
 }
 
 /**
+ * Parses dotenv-style lines (KEY=VALUE per line, # comments, first '=' splits key/value)
+ * into a JSON object string suitable for SecretString storage.
+ */
+export function parseDotenvTextToJsonSecretString(text: string): string {
+  const lines = text.split("\n");
+  const obj: Record<string, string> = {};
+
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\r$/, "").trim();
+    if (line === "" || line.startsWith("#")) {
+      continue;
+    }
+
+    const eq = line.indexOf("=");
+    if (eq === -1) {
+      const preview = line.length > 80 ? `${line.slice(0, 80)}...` : line;
+      throw new Error(`Invalid dotenv line (expected KEY=VALUE): ${preview}`);
+    }
+
+    const key = line.slice(0, eq).trim();
+    const value = line.slice(eq + 1).trim();
+    if (key === "") {
+      throw new Error("Invalid dotenv line: empty key");
+    }
+
+    obj[key] = value;
+  }
+
+  return JSON.stringify(obj);
+}
+
+/**
  * Builds the GitHub Actions workflow run URL from environment variables
  */
 export function buildWorkflowRunUrl(): string | undefined {

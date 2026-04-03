@@ -41,6 +41,22 @@ Configure AWS credentials before this step using [configure-aws-credentials](htt
     tags: '{"Environment":"prod","Team":"platform"}'
 ```
 
+### Dotenv-style lines stored as a JSON object
+
+When `txt-to-json` is `true`, the action parses `secret-value` like a `.env` file (one `KEY=VALUE` per line, `#` comments, first `=` splits key and value). Values are JSON-encoded, so the stored secret is a JSON object string.
+
+```yaml
+- name: Put secret from multiline KEY=VALUE input
+  uses: aws-actions/aws-secretsmanager-put-secrets@v2
+  with:
+    secret-id: my-app/config
+    txt-to-json: true
+    secret-value: |
+      FOO=bar
+      # optional comment
+      BAZ=qux
+```
+
 ### Secret is created if it does not exist
 
 On first run, if the secret does not exist in AWS Secrets Manager, the action creates it. No manual setup required.
@@ -59,6 +75,7 @@ On first run, if the secret does not exist in AWS Secrets Manager, the action cr
 | ------------------------------------ | ------------------------------------------------------------------------------------ | -------- | ------- |
 | `secret-id`                          | The name or ARN of the secret to create or update                                    | Yes      | -       |
 | `secret-value`                       | The secret value (raw text or JSON string) to store                                  | Yes      | -       |
+| `txt-to-json`                        | When `true`, parse `secret-value` as dotenv-style lines (`KEY=VALUE`, `#` comments) and store a JSON object string (`SecretString`).                                                                         | No       | `false` |
 | `tags`                               | JSON object string of tags to apply, e.g. `{"Environment":"prod","Team":"platform"}` | No       | `""`    |
 | `auto-select-family-attempt-timeout` | Timeout (ms) for dual-stack DNS. Use for geographically distant runners.             | No       | `1000`  |
 

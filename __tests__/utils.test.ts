@@ -40,6 +40,7 @@ const {
   buildWorkflowRunUrl,
   mergeTags,
   tagsNeedUpdate,
+  parseDotenvTextToJsonSecretString,
 } = await import("../src/utils.js");
 const { ACTION_VERSION, getUserAgent } = await import("../src/constants.js");
 
@@ -665,6 +666,46 @@ describe("putSecret orchestration", () => {
       `Secret '${TEST_NAME}' is up-to-date.`,
     );
     expect(smMockClient).not.toHaveReceivedCommand(PutSecretValueCommand);
+  });
+});
+
+describe("parseDotenvTextToJsonSecretString", () => {
+  it("parses lines, comments, and first '=' split", () => {
+    const input = `  # intro
+FOO=bar
+BAZ=qux=z
+`;
+    expect(parseDotenvTextToJsonSecretString(input)).toBe(
+      '{"FOO":"bar","BAZ":"qux=z"}',
+    );
+  });
+
+  it("last duplicate key wins", () => {
+    expect(parseDotenvTextToJsonSecretString("A=1\nA=2")).toBe('{"A":"2"}');
+  });
+
+  it("escapes values for JSON", () => {
+    const out = parseDotenvTextToJsonSecretString('X=hello "world"');
+    expect(JSON.parse(out)).toStrictEqual({ X: 'hello "world"' });
+  });
+
+  it("throws on line without equals", () => {
+    expect(() => parseDotenvTextToJsonSecretString("not-a-key-value")).toThrow(
+      /Invalid dotenv line/,
+    );
+  });
+
+  it("throws on empty key", () => {
+    expect(() => parseDotenvTextToJsonSecretString("=value")).toThrow(
+      /empty key/,
+    );
+  });
+
+  it("truncates long invalid lines in the error message", () => {
+    const longLine = `x${"y".repeat(90)}`;
+    expect(() => parseDotenvTextToJsonSecretString(longLine)).toThrow(
+      /^Invalid dotenv line.*\.\.\.$/,
+    );
   });
 });
 

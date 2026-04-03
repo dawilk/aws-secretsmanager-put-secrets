@@ -1,7 +1,11 @@
 import * as core from "@actions/core";
 import { setDefaultAutoSelectFamilyAttemptTimeout } from "net";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
-import { putSecret, isAuthError } from "./utils.js";
+import {
+  putSecret,
+  isAuthError,
+  parseDotenvTextToJsonSecretString,
+} from "./utils.js";
 import { getUserAgent } from "./constants.js";
 
 export async function run(): Promise<void> {
@@ -24,7 +28,11 @@ export async function run(): Promise<void> {
     });
 
     const secretId = core.getInput("secret-id", { required: true });
-    const secretValue = core.getInput("secret-value", { required: true });
+    const secretValueRaw = core.getInput("secret-value", { required: true });
+    const txtToJson = core.getBooleanInput("txt-to-json");
+    const secretValue = txtToJson
+      ? parseDotenvTextToJsonSecretString(secretValueRaw)
+      : secretValueRaw;
     const tags = core.getInput("tags");
 
     await putSecret(client, { secretId, secretValue, tags });
