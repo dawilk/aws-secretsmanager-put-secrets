@@ -26,7 +26,7 @@ Configure AWS credentials before this step using [configure-aws-credentials](htt
     aws-region: us-east-1
 
 - name: Put secret to AWS Secrets Manager
-  uses: aws-actions/aws-secretsmanager-put-secrets@v2
+  uses: dawilk/aws-secretsmanager-put-secrets@v1
   with:
     secret-id: my-app/api-key
     secret-value: ${{ secrets.API_KEY }}
@@ -36,7 +36,7 @@ Configure AWS credentials before this step using [configure-aws-credentials](htt
 
 ```yaml
 - name: Put JSON secret with tags
-  uses: aws-actions/aws-secretsmanager-put-secrets@v2
+  uses: dawilk/aws-secretsmanager-put-secrets@v1
   with:
     secret-id: my-app/database-config
     secret-value: ${{ secrets.DATABASE_CONFIG }}
@@ -49,7 +49,7 @@ When `txt-to-json` is `true`, the action parses `secret-value` like a `.env` fil
 
 ```yaml
 - name: Put secret from multiline KEY=VALUE input
-  uses: aws-actions/aws-secretsmanager-put-secrets@v2
+  uses: dawilk/aws-secretsmanager-put-secrets@v1
   with:
     secret-id: my-app/config
     txt-to-json: true
@@ -65,7 +65,7 @@ On first run, if the secret does not exist in AWS Secrets Manager, the action cr
 
 ```yaml
 - name: Put secret (creates if missing)
-  uses: aws-actions/aws-secretsmanager-put-secrets@v2
+  uses: dawilk/aws-secretsmanager-put-secrets@v1
   with:
     secret-id: my-app/new-secret
     secret-value: ${{ secrets.NEW_SECRET_VALUE }}
